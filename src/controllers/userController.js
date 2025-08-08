@@ -1,6 +1,31 @@
 const User = require('../models/userMode');
 const qrCodeGenerator = require('../utils/generateQRCode');
 
+// Protected route
+const getProfile = (req, res) => {
+  res.json({
+    message: 'You are authenticated',
+    user: req.user
+  });
+}
+
+const getUsers = async (req, res) => {
+  try {
+    const users = await User.find(req.query);
+
+    res.status(200).json({
+      status: true,
+      data: users
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: false,
+      message: 'something went wrong!'
+    })
+  }
+}
+
 const getAnUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -68,4 +93,4 @@ const createAnUser = async (req, res) => {
   }
 }
 
-module.exports = { getAnUser, createAnUser };
+module.exports = { getAnUser, createAnUser, getUsers, getProfile };

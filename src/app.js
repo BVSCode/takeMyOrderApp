@@ -4,19 +4,17 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
 
-const app = express();
-
 const { connectTOMongo } = require('./db');
-
 const userRoute = require('./routes/userRoute');
+const productRoute = require('./routes/productRoute');
+const cors = require('cors');
+
+const app = express();
 
 // Connect with DB---
 connectTOMongo();
 
-// app.get('/', (req, res, next) => {
-//   res.send('hello, world!');
-// });
-
+app.use(cors());
 app.use(express.json());
 
 // ---
@@ -57,33 +55,22 @@ app.get('/auth/google/callback',
   }
 );
 
-// Middleware to protect API using JWT
-const authenticateJWT = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.sendStatus(401);
-
-  const token = authHeader.split(' ')[1];
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-};
-
-// Protected route
-app.get('/profile', authenticateJWT, (req, res) => {
-  res.json({
-    message: 'You are authenticated',
-    user: req.user
-  });
-});
-
 app.get('/', (req, res) => {
   res.send(`<h2>Welcome</h2><a href="/auth/google">Login with Google</a>`);
 });
 // ---
 
 app.use('/api/v1/users', userRoute);
+app.use('/api/v1/products', productRoute);
+
+// app.all('*', (req, res) => {
+//   return res.status(404).json({
+//     status: false,
+//     message: `can't find ${req.originalUrl} on this server!`
+//   });
+// });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`server is listening on http://localhost:${port}`));
+const host = process.env.HOST || '127.0.0.1';
+
+app.listen(port, host, () => console.log(`server is listening on http://${host}:${port}`));

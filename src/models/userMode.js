@@ -14,21 +14,21 @@ const userSchema = new mongoose.Schema(
       // required: ["companyName is required!", true],
       sparse: true, // Enable partial index
     },
-    items: [{
-      itemName: {
-        type: String,
-      },
-      price: {
-        type: Number,
-      },
-      // quantity: {
-      //   type: String,
-      // },
-      unit: {
-        type: String,
-        default: 'gram'
-      }
-    }],
+    // items: [{
+    //   itemName: {
+    //     type: String,
+    //   },
+    //   price: {
+    //     type: Number,
+    //   },
+    //   // quantity: {
+    //   //   type: String,
+    //   // },
+    //   unit: {
+    //     type: String,
+    //     default: 'gram'
+    //   }
+    // }],
     __v: {
       type: Number,
       select: false
