@@ -1,4 +1,5 @@
 const Product = require('../models/productModel');
+const User = require('../models/userModel');
 
 const getProducts = async (req, res, next) => {
   try {
@@ -6,6 +7,7 @@ const getProducts = async (req, res, next) => {
 
     res.status(200).json({
       status: true,
+      results: products.length,
       data: products
     })
   } catch (err) {

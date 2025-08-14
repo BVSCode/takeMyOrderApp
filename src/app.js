@@ -3,11 +3,13 @@ require('dotenv').config();
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
+const cors = require('cors');
+const path = require('path');
 
 const { connectTOMongo } = require('./db');
 const userRoute = require('./routes/userRoute');
 const productRoute = require('./routes/productRoute');
-const cors = require('cors');
+const orderRoute = require('./routes/orderRoute');
 
 const app = express();
 
@@ -16,6 +18,10 @@ connectTOMongo();
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the 'public' directory
+// app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ---
 // Initialize passport (no session)
@@ -58,10 +64,11 @@ app.get('/auth/google/callback',
 app.get('/', (req, res) => {
   res.send(`<h2>Welcome</h2><a href="/auth/google">Login with Google</a>`);
 });
-// ---
 
+// ---
 app.use('/api/v1/users', userRoute);
 app.use('/api/v1/products', productRoute);
+app.use('/api/v1/orders', orderRoute);
 
 // app.all('*', (req, res) => {
 //   return res.status(404).json({

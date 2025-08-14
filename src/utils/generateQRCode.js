@@ -12,7 +12,12 @@ module.exports = async (id) => {
     // });
 
     // const deeplink = `http://${process.env.HOST}:${process.env.PORT}/api/v1/users/${id}`;
-    const deeplink = `http://localhost:3000/api/v1/users/${id}`;
+
+    const host = process.env.host || 'localhost';
+    const port = process.env.port || 3000;
+
+    // const deeplink = `http://${host}:${port}/api/v1/products?restaurantId=${id}`;
+    const deeplink = `http://${host}:${port}/api/v1/users/${id}`;
 
     // Generate the QR code and wait for the result
     const code = await QRCode.toDataURL(deeplink);

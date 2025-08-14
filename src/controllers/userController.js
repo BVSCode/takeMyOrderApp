@@ -1,4 +1,4 @@
-const User = require('../models/userMode');
+const User = require('../models/userModel');
 const qrCodeGenerator = require('../utils/generateQRCode');
 
 // Protected route
@@ -15,6 +15,7 @@ const getUsers = async (req, res) => {
 
     res.status(200).json({
       status: true,
+      results: users.length,
       data: users
     });
   } catch (error) {
@@ -29,7 +30,8 @@ const getUsers = async (req, res) => {
 const getAnUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const currentUser = await User.findById(id);
+    const currentUser = await User.findById(id).populate({ path: 'products' }).select('restaurantName');
+    // const currentUser = await User.findById(id).populate('products');
 
     if (!currentUser) {
       return res.status(404).json({
@@ -39,18 +41,19 @@ const getAnUser = async (req, res) => {
     }
 
     // delete sensitive propeties
-    const regularUserObj = currentUser.toObject();
+    // const regularUserObj = currentUser.toObject();
 
-    delete regularUserObj.password;
-    delete regularUserObj.userName;
-    delete regularUserObj.mobileNumber;
-    delete regularUserObj.role;
-    delete regularUserObj.isActive;
-    delete regularUserObj.qrCode;
+    // delete regularUserObj.password;
+    // delete regularUserObj.userName;
+    // delete regularUserObj.mobileNumber;
+    // delete regularUserObj.role;
+    // delete regularUserObj.isActive;
+    // delete regularUserObj.qrCode;
 
     res.status(200).json({
       status: true,
-      data: regularUserObj
+      // data: regularUserObj
+      data: currentUser
     })
   } catch (err) {
     console.error(err);
@@ -65,20 +68,12 @@ const createAnUser = async (req, res) => {
   try {
     const newUser = await User.create(req.body);
 
-    // if (!currentUser) {
-    //   return res.status(404).json({
-    //     status: false,
-    //     message: 'user not found!'
-    //   })
-    // }
-
-    // await newUser.qrCode = 
-
-    const qrCode = await qrCodeGenerator(newUser._id);
-
-    // Save the QR code to the user
-    newUser.qrCode = qrCode;
-    await newUser.save();
+    if (newUser.role === 'admin') {
+      const qrCode = await qrCodeGenerator(newUser._id);
+      // Save the QR code to the user
+      newUser.qrCode = qrCode;
+      await newUser.save();
+    }
 
     res.status(200).json({
       status: true,
@@ -93,4 +88,29 @@ const createAnUser = async (req, res) => {
   }
 }
 
-module.exports = { getAnUser, createAnUser, getUsers, getProfile };
+const updateUser = async (req, res, next) => {
+  try {
+    const updatedProduct = await User.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+
+    if (!updatedProduct) {
+      res.status(404).json({
+        status: false,
+        message: 'could not find doc with that id'
+      });
+    }
+
+    res.status(200).json({
+      status: true,
+      data: updatedProduct,
+      message: 'user updated successfuly!'
+    })
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      status: false,
+      message: 'sothing went wrong!'
+    })
+  }
+}
+
+module.exports = { getAnUser, createAnUser, getUsers, getProfile, updateUser };

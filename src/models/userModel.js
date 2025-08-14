@@ -1,18 +1,20 @@
 const mongoose = require("mongoose");
 // const bcrypt = require('bcrypt');
+// const slugify = require('slugify');
 
 const userSchema = new mongoose.Schema(
   {
     userName: {
       type: String,
       required: ["username is required!", true],
-      // lowercase: true,
+      lowercase: true,
       trim: true
     },
-    companyName: {
+    restaurantName: {
       type: String,
       // required: ["companyName is required!", true],
-      sparse: true, // Enable partial index
+      sparse: true, // Enable partial index,
+      lowercase: true
     },
     // items: [{
     //   itemName: {
@@ -29,10 +31,6 @@ const userSchema = new mongoose.Schema(
     //     default: 'gram'
     //   }
     // }],
-    __v: {
-      type: Number,
-      select: false
-    },
     mobileNumber: {
       type: String,
       trim: true,
@@ -47,7 +45,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'please provide a password'],
+      // required: [true, 'please provide a password'],
       // minlength: [8, "Password should be between 8 to 16 charactors!"],
       // maxlength: [36, "Password should be between 8 to 16 charactors!"],
       // trim: true,
@@ -107,6 +105,16 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    // products: [
+    //   {
+    //     type: mongoose.Schema.ObjectId,
+    //     ref: 'Product'
+    //   }
+    // ],
+    // slug: {
+    //   type: String,
+    //   unique: true // Ensure slugs are unique
+    // },
     __v: { type: Number, select: false },
   },
   {
@@ -118,11 +126,11 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// userSchema.virtual('familyMembers', {
-//     ref: 'Familymember',
-//     localField: '_id',
-//     foreignField: 'userId',
-// });
+userSchema.virtual('products', {
+  ref: 'Product',
+  localField: '_id',
+  foreignField: 'restaurantId',
+});
 
 // User model---
 // userSchema.pre('save', async function (next) {
@@ -138,6 +146,14 @@ const userSchema = new mongoose.Schema(
 // userSchema.methods.correctPassword = async function (candidatePassword, userPassword) {
 //   return await bcrypt.compare(candidatePassword, userPassword)
 // }
+
+// userSchema.pre('save', function (next) {
+//   // Only generate slug if the 'name' field is new or has been modified
+//   if (this.isModified('restaurantName') || this.isNew) {
+//     this.slug = slugify(this.restaurantName, { lower: true, strict: true });
+//   }
+//   next();
+// });
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;
