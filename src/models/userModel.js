@@ -8,13 +8,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: ["username is required!", true],
       lowercase: true,
-      trim: true
+      trim: true,
     },
     restaurantName: {
       type: String,
       // required: ["companyName is required!", true],
       sparse: true, // Enable partial index,
-      lowercase: true
+      lowercase: true,
     },
     // items: [{
     //   itemName: {
@@ -34,14 +34,28 @@ const userSchema = new mongoose.Schema(
     mobileNumber: {
       type: String,
       trim: true,
-      required: [true, 'mobile number is must!'],
-      unique: [true, 'mobile mumber must be unique!'],
+      // required: [true, "mobile number is must!"],
+      unique: [true, "mobile number must be unique!"],
       validate: {
         validator: function (v) {
           return /^\d{10}$/.test(v);
         },
-        message: '{VALUE} is not a valid 10 digit number!'
-      }
+        message: "{VALUE} is not a valid 10 digit number!",
+      },
+    },
+    email: {
+      type: String,
+      required: [true, "email is required!"],
+      unique: [true, "email must be unique!"],
+      lowercase: true,
+      trim: true,
+      validate: {
+        validator: function (v) {
+          // Simple email regex for validation
+          return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(v);
+        },
+        message: "{VALUE} is not a valid email!",
+      },
     },
     password: {
       type: String,
@@ -93,17 +107,22 @@ const userSchema = new mongoose.Schema(
       state: { type: String, lowercase: true, trim: true },
       country: { type: String, lowercase: true, trim: true },
     },
-    gender: { type: String, trim: true, lowercase: true, enum: ['male', 'female', 'others'] },
+    gender: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      enum: ["male", "female", "others"],
+    },
     role: {
       type: String,
       trim: true,
       lowercase: true,
-      enum: ['user', 'admin', 'manager', 'waiter', 'superadmin'],
-      default: 'user'
+      enum: ["user", "admin", "manager", "waiter", "superadmin"],
+      default: "user",
     },
     isActive: {
       type: Boolean,
-      default: true
+      default: true,
     },
     // products: [
     //   {
@@ -118,18 +137,18 @@ const userSchema = new mongoose.Schema(
     __v: { type: Number, select: false },
   },
   {
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    toJSON: { virtual: true },
+    toObject: { virtual: true },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-userSchema.virtual('products', {
-  ref: 'Product',
-  localField: '_id',
-  foreignField: 'restaurantId',
+userSchema.virtual("products", {
+  ref: "Product",
+  localField: "_id",
+  foreignField: "restaurantId",
 });
 
 // User model---
