@@ -18,7 +18,23 @@ const app = express();
 // Connect with DB---
 connectTOMongo();
 
-app.use(cors());
+// app.use(cors());
+app.set("trust proxy", true);
+
+// cors configuration
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://10.47.246.31:5173",
+      // "http://10.47.246.31:5174/",
+      "https://haematological-shaunta-phyletically.ngrok-free.dev",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 // Serve static files from the 'public' directory
@@ -51,7 +67,7 @@ passport.use(
               userName: profile.displayName,
               email: userEmail,
               // googleId: profile.id,
-              mobileNumber: "0000000002",
+              mobileNumber: "0000000012",
             });
           }
         }
@@ -88,7 +104,7 @@ app.get(
   "/auth/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {
-    res.redirect(`http://localhost:5173/products?token=${req.user}`);
+    res.redirect(`${process.env.FRONTEND_BASE_URL}products?token=${req.user}`);
   },
 );
 
@@ -109,8 +125,9 @@ app.use("/api/v1/orders", orderRoute);
 // });
 
 const port = process.env.PORT || 3000;
-const host = process.env.HOST || "127.0.0.1";
+// const host = process.env.HOST || "127.0.0.1";
 
-app.listen(port, host, () =>
-  console.log(`server is listening on http://${host}:${port}`),
+// app.listen(port, host, () =>
+app.listen(port, "0.0.0.0", () =>
+  console.log(`server is listening on http://0.0.0.0:${port}`),
 );
