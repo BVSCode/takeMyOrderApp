@@ -20,7 +20,7 @@ module.exports = async (id) => {
     // const deeplink = `http://${host}:${port}/api/v1/users/${id}`;
 
     const deeplink =
-      process.env.FRONTEND_URL ||
+      process.env.FRONTEND_BASE_URL ||
       `http://${process.env.HOST}:${process.env.PORT}/` +
         `products?restaurantId=${id}`;
 

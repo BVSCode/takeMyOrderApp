@@ -26,12 +26,18 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "http://10.47.246.31:5173",
+      "http://10.75.255.31:5173",
+      "http://localhost:8080",
+      "http://10.82.222.31:8080",
       // "http://10.47.246.31:5174/",
       "https://haematological-shaunta-phyletically.ngrok-free.dev",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "ngrok-skip-browser-warning",
+    ],
     credentials: true,
   }),
 );
@@ -104,7 +110,8 @@ app.get(
   "/auth/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {
-    res.redirect(`${process.env.FRONTEND_BASE_URL}products?token=${req.user}`);
+    res.redirect(`${process.env.FRONTEND_BASE_URL}?token=${req.user}`);
+    // res.redirect(`${process.env.FRONTEND_BASE_URL}`); // frontend is unable to set the token, find the cause and fix it later
   },
 );
 
@@ -125,7 +132,7 @@ app.use("/api/v1/orders", orderRoute);
 // });
 
 const port = process.env.PORT || 3000;
-// const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || "127.0.0.1";
 
 // app.listen(port, host, () =>
 app.listen(port, "0.0.0.0", () =>
