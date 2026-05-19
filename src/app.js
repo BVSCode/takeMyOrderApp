@@ -73,7 +73,7 @@ passport.use(
               userName: profile.displayName,
               email: userEmail,
               // googleId: profile.id,
-              mobileNumber: "0000000012",
+              // mobileNumber: "0000000012",
             });
           }
         }

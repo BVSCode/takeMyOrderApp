@@ -1,56 +1,81 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
+const { customAlphabet } = require("nanoid");
+
+// Define a consumer-friendly uppercase alphanumeric dictionary (removed confusing 0, O, 1, I)
+const generateRandomCode = customAlphabet(
+  "23456789ABCDEFGHJKLMNPQRSTUVWXYZ",
+  6,
+);
 
 // Sub-schema for products in an order
-const productItemSchema = new mongoose.Schema(
+const orderItemSchema = new mongoose.Schema(
   {
-    productId: {
+    orderId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
+      ref: "Product",
       required: true,
     },
-    productName: {
+    name: {
       type: String,
       required: true,
       trim: true,
     },
+    image: String,
     quantity: {
       type: Number,
       required: true,
-      min: [1, 'Quantity must be at least 1'],
-      max: [100, 'Quantity cannot exceed 100'],
+      min: [1, "Quantity must be at least 1"],
+      max: [100, "Quantity cannot exceed 100"],
     },
     price: {
       type: Number,
       required: true,
-      min: [0, 'Price must be a positive number'],
+      min: [0, "Price must be a positive number"],
     },
   },
-  { _id: false } // Prevent automatic _id generation for subdocs
+  { _id: false }, // Prevent automatic _id generation for subdocs
 );
 
 const orderSchema = new mongoose.Schema(
   {
-    productItems: {
-      type: [productItemSchema],
+    orderItems: {
+      type: [orderItemSchema],
       validate: [
         (val) => val.length > 0,
-        'Order must contain at least one product item',
+        "Order must contain at least one product item",
       ],
     },
     status: {
       type: String,
       trim: true,
-      enum: ['pending', 'processing', 'complete', 'cancel'],
-      default: 'pending',
+      enum: ["Preparing", "Completed", "Cancelled"],
+      default: "Preparing",
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    trackingId: {
+      type: String,
+      required: true,
+      unique: true, // Creates a unique index in MongoDB
+      default: () => {
+        // 1. Get current epoch timestamp in base 36 (e.g., "lq7z2x")
+        const timePrefix = Date.now().toString(36).toUpperCase();
+        // 2. Generate a 6-character random token (e.g., "7X8M2P")
+        const randomSuffix = generateRandomCode();
+        // 3. Output: "LQ7Z2X-7X8M2P"
+        return `${timePrefix}-${randomSuffix}`;
+      },
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     __v: { type: Number, select: false },
@@ -59,16 +84,16 @@ const orderSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 // Virtual: total order price
-orderSchema.virtual('totalPrice').get(function () {
-  return this.productItems.reduce(
+orderSchema.virtual("totalPrice").get(function () {
+  return this.orderItems.reduce(
     (total, item) => total + item.quantity * item.price,
-    0
+    0,
   );
 });
 
-const Order = mongoose.model('Order', orderSchema);
+const Order = mongoose.model("Order", orderSchema);
 module.exports = Order;
