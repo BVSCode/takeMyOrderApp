@@ -28,11 +28,12 @@ app.use(
       "http://localhost:5173",
       "http://10.75.255.31:5173",
       "http://localhost:8080",
-      "http://10.82.222.31:8080",
+      "http://10.236.248.31:8080",
+      process.env.FRONTEND_BASE_URL,
       // "http://10.47.246.31:5174/",
       "https://haematological-shaunta-phyletically.ngrok-free.dev",
     ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -41,6 +42,7 @@ app.use(
     credentials: true,
   }),
 );
+
 app.use(express.json());
 
 // Serve static files from the 'public' directory
@@ -60,16 +62,17 @@ passport.use(
       callbackURL: process.env.CALLBACK_URL,
     },
     async (accessToken, refreshToken, profile, done) => {
-      // console.log(accessToken, refreshToken, profile);
-
       try {
         const userEmail = profile.emails?.[0].value;
+        let newUser = null;
+        let userExists = null;
 
         if (userEmail) {
-          const userExists = await User.findOne({ email: userEmail });
+          // Check if the user already exists in the database
+          userExists = await User.findOne({ email: userEmail });
           if (!userExists) {
             // Create a new user in the database
-            await User.create({
+            newUser = await User.create({
               userName: profile.displayName,
               email: userEmail,
               // googleId: profile.id,
@@ -81,13 +84,14 @@ passport.use(
         // Here, issue your JWT
         const token = jwt.sign(
           {
-            id: profile.id,
+            profileId: profile.id,
+            userId: userExists?._id || newUser?._id,
             name: profile.displayName,
             email: profile.emails?.[0].value,
             provider: profile.provider,
           },
           process.env.JWT_SECRET,
-          { expiresIn: "1h" },
+          { expiresIn: "90d" },
         );
 
         return done(null, token);

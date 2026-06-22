@@ -2,7 +2,8 @@ const Order = require("../models/orderModel");
 
 const getOrders = async (req, res, next) => {
   try {
-    const userOrders = await Order.find(req.query, null, {
+    const userId = req.user.userId;
+    const userOrders = await Order.find({ userId }, null, {
       sort: { createdAt: -1 },
     });
 
@@ -22,9 +23,10 @@ const getOrders = async (req, res, next) => {
 
 const createOrder = async (req, res, next) => {
   try {
-    // console.log(req.body);
-    // const = {}
-    const newOrder = await Order.create(req.body);
+    const newOrder = await Order.create({
+      ...req.body,
+      userId: req.user.userId,
+    });
 
     res.status(200).json({
       status: true,
@@ -57,4 +59,48 @@ const getOrderById = async (req, res, next) => {
   });
 };
 
-module.exports = { getOrders, createOrder, getOrderById };
+const updateOderById = async (req, res, next) => {
+  const { trackingId } = req.params;
+
+  const order = await Order.findOneAndUpdate({ trackingId }, req.body, {
+    new: true,
+  });
+
+  if (!order) {
+    return res.status(404).json({
+      status: false,
+      message: "order not found!",
+    });
+  }
+
+  res.status(200).json({
+    status: true,
+    data: order,
+  });
+};
+
+const deleteOrderById = async (req, res, next) => {
+  const { trackingId } = req.params;
+
+  const order = await Order.findOneAndDelete({ trackingId });
+
+  if (!order) {
+    return res.status(404).json({
+      status: false,
+      message: "order not found!",
+    });
+  }
+
+  res.status(200).json({
+    status: true,
+    message: "order deleted successfully!",
+  });
+};
+
+module.exports = {
+  getOrders,
+  createOrder,
+  getOrderById,
+  updateOderById,
+  deleteOrderById,
+};

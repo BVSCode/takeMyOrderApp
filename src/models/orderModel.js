@@ -68,6 +68,12 @@ const orderSchema = new mongoose.Schema(
         return `${timePrefix}-${randomSuffix}`;
       },
     },
+    paymentMethod: {
+      type: String,
+      trim: true,
+      enum: ["cash", "upi"],
+      default: "cash",
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
