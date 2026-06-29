@@ -5,7 +5,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const path = require("path");
-
+const cookieParser = require("cookie-parser");
 const { connectTOMongo } = require("./db");
 const userRoute = require("./routes/userRoute");
 const productRoute = require("./routes/productRoute");
@@ -20,6 +20,9 @@ connectTOMongo();
 
 // app.use(cors());
 app.set("trust proxy", true);
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(cookieParser());
 
 // cors configuration
 app.use(
@@ -42,8 +45,6 @@ app.use(
     credentials: true,
   }),
 );
-
-app.use(express.json());
 
 // Serve static files from the 'public' directory
 // app.use(express.static(path.join(__dirname, 'public')));
@@ -89,6 +90,7 @@ passport.use(
             name: profile.displayName,
             email: profile.emails?.[0].value,
             provider: profile.provider,
+            role: userExists?.role || newUser?.role || "user",
           },
           process.env.JWT_SECRET,
           { expiresIn: "90d" },
@@ -114,8 +116,18 @@ app.get(
   "/auth/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {
-    res.redirect(`${process.env.FRONTEND_BASE_URL}?token=${req.user}`);
-    // res.redirect(`${process.env.FRONTEND_BASE_URL}`); // frontend is unable to set the token, find the cause and fix it later
+    // res.redirect(`${process.env.FRONTEND_BASE_URL}?token=${req.user}`);
+    // res.redirect(`${process.env.FRONTEND_BASE_URL}`);
+
+    // set the token in the cookie
+    res.cookie("token", req.user, {
+      httpOnly: true,
+      secure: true,
+      maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
+      sameSite: "none",
+    });
+
+    res.redirect(`${process.env.FRONTEND_BASE_URL}`);
   },
 );
 

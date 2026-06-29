@@ -1,4 +1,6 @@
 const express = require("express");
+const { authenticateJWT } = require("../controllers/authController");
+
 const router = express.Router();
 
 const {
@@ -8,11 +10,10 @@ const {
   getProfile,
   updateUser,
 } = require("../controllers/userController");
-// const { authenticateJWT } = require('../controllers/authController');
 
-// router.use(authenticateJWT);
+router.use(authenticateJWT);
 
-router.route("/profile").get(getProfile);
+router.route("/me").get(getProfile);
 
 router.route("/").get(getUsers).post(createAnUser);
 

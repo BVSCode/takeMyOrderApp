@@ -3,6 +3,18 @@ const Order = require("../models/orderModel");
 const getOrders = async (req, res, next) => {
   try {
     const userId = req.user.userId;
+    // if the user is admin, return all orders, else return only the orders of the user
+    if (req?.user?.role === "admin") {
+      const allOrders = await Order.find({}, null, {
+        sort: { createdAt: -1 },
+      });
+
+      res.status(200).json({
+        status: true,
+        results: allOrders.length,
+        data: allOrders,
+      });
+    }
     const userOrders = await Order.find({ userId }, null, {
       sort: { createdAt: -1 },
     });
