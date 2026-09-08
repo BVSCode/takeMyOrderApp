@@ -9,17 +9,18 @@ const getOrders = async (req, res, next) => {
         sort: { createdAt: -1 },
       });
 
-      res.status(200).json({
+      return res.status(200).json({
         status: true,
         results: allOrders.length,
         data: allOrders,
       });
     }
+
     const userOrders = await Order.find({ userId }, null, {
       sort: { createdAt: -1 },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       status: true,
       results: userOrders.length,
       data: userOrders,

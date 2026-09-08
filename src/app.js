@@ -31,7 +31,7 @@ app.use(
       "http://localhost:5173",
       "http://10.75.255.31:5173",
       "http://localhost:8080",
-      "http://10.236.248.31:8080",
+      "http://10.16.151.31:8080",
       process.env.FRONTEND_BASE_URL,
       // "http://10.47.246.31:5174/",
       "https://haematological-shaunta-phyletically.ngrok-free.dev",

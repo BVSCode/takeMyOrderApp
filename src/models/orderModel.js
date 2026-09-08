@@ -48,8 +48,8 @@ const orderSchema = new mongoose.Schema(
     status: {
       type: String,
       trim: true,
-      enum: ["Preparing", "Completed", "Cancelled"],
-      default: "Preparing",
+      enum: ["Pending", "Confirmed", "Preparing", "Completed", "Cancelled"],
+      default: "Pending",
     },
     description: {
       type: String,
@@ -66,6 +66,19 @@ const orderSchema = new mongoose.Schema(
         const randomSuffix = generateRandomCode();
         // 3. Output: "LQ7Z2X-7X8M2P"
         return `${timePrefix}-${randomSuffix}`;
+      },
+    },
+    orderToken: {
+      status: {
+        type: String,
+        trim: true,
+        enum: ["active", "inactive"],
+        default: "active",
+      },
+      token: {
+        type: String,
+        trim: true,
+        default: () => generateRandomCode(6), // 6-character random token
       },
     },
     paymentMethod: {
