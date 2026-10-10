@@ -7,6 +7,15 @@ const generateRandomCode = customAlphabet(
   6,
 );
 
+// Pickup code: one letter followed by five digits, e.g. "K48213". Easy to say
+// across a counter and to type on a phone keypad. I and O are left out so
+// they are never confused with 1 and 0.
+const PICKUP_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const PICKUP_DIGITS = 5;
+const randomLetter = customAlphabet(PICKUP_LETTERS, 1);
+const randomDigits = customAlphabet("0123456789", PICKUP_DIGITS);
+const generatePickupCode = () => `${randomLetter()}${randomDigits()}`;
+
 // Sub-schema for products in an order
 const orderItemSchema = new mongoose.Schema(
   {
@@ -78,7 +87,7 @@ const orderSchema = new mongoose.Schema(
       token: {
         type: String,
         trim: true,
-        default: () => generateRandomCode(6), // 6-character random token
+        default: generatePickupCode, // one letter + five digits
       },
     },
     // Set when counter staff hand the order to the customer
