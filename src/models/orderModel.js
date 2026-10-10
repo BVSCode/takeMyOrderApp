@@ -48,7 +48,7 @@ const orderSchema = new mongoose.Schema(
     status: {
       type: String,
       trim: true,
-      enum: ["Pending", "Confirmed", "Preparing", "Completed", "Cancelled"],
+      enum: ["Pending", "Confirmed", "Preparing", "Ready", "Completed", "Cancelled"],
       default: "Pending",
     },
     description: {
@@ -80,6 +80,10 @@ const orderSchema = new mongoose.Schema(
         trim: true,
         default: () => generateRandomCode(6), // 6-character random token
       },
+    },
+    // Set when counter staff hand the order to the customer
+    pickedUpAt: {
+      type: Date,
     },
     paymentMethod: {
       type: String,

@@ -29,6 +29,10 @@ const productSchema = new mongoose.Schema(
     description: {
       type: String,
     },
+    category: {
+      type: String,
+      trim: true,
+    },
     preparationTime: {
       type: String,
       // required: [true, "Preparation time is required"],

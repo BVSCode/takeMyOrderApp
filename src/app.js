@@ -10,6 +10,7 @@ const { connectTOMongo } = require("./db");
 const userRoute = require("./routes/userRoute");
 const productRoute = require("./routes/productRoute");
 const orderRoute = require("./routes/orderRoute");
+const authRoute = require("./routes/authRoute");
 const User = require("./models/userModel");
 
 // Initialize express app
@@ -136,6 +137,7 @@ app.get("/", (req, res) => {
 });
 
 // ---
+app.use("/api/v1/auth", authRoute);
 app.use("/api/v1/users", userRoute);
 app.use("/api/v1/products", productRoute);
 app.use("/api/v1/orders", orderRoute);

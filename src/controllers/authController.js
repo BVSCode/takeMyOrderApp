@@ -15,4 +15,16 @@ const authenticateJWT = (req, res, next) => {
   }
 };
 
-module.exports = { authenticateJWT };
+// Middleware factory: allow only the given roles (use after authenticateJWT)
+const requireRole = (...roles) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ message: "Access denied" });
+  if (!roles.includes(req.user.role)) {
+    return res.status(403).json({
+      status: false,
+      message: "You do not have permission to perform this action",
+    });
+  }
+  next();
+};
+
+module.exports = { authenticateJWT, requireRole };
