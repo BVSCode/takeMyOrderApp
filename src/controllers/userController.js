@@ -1,5 +1,6 @@
 const User = require("../models/userModel");
 const qrCodeGenerator = require("../utils/generateQRCode");
+const { menuUrlFor } = require("../utils/generateQRCode");
 
 // Protected route
 const getProfile = (req, res) => {
@@ -7,6 +8,39 @@ const getProfile = (req, res) => {
     message: "You are authenticated",
     user: req.user,
   });
+};
+
+// GET /users/me/qr (admins only)
+// The restaurant's table code. Regenerated on every call so a changed
+// frontend URL never leaves a stale image in the database.
+const getMyQrCode = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select("userName businessName qrCode");
+    if (!user) {
+      return res.status(404).json({ status: false, message: "user not found!" });
+    }
+
+    const qrCode = await qrCodeGenerator(user._id);
+    if (!qrCode) {
+      return res.status(500).json({ status: false, message: "The QR code could not be generated" });
+    }
+    if (qrCode !== user.qrCode) {
+      user.qrCode = qrCode;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    res.status(200).json({
+      status: true,
+      data: {
+        qrCode,
+        menuUrl: menuUrlFor(user._id),
+        businessName: user.businessName || user.userName,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: false, message: "Internal server error!" });
+  }
 };
 
 const getUsers = async (req, res) => {
@@ -32,7 +66,7 @@ const getAnUser = async (req, res) => {
     const { id } = req.params;
     const currentUser = await User.findById(id)
       .populate({ path: "products" })
-      .select("restaurantName");
+      .select("businessName");
     // const currentUser = await User.findById(id).populate('products');
 
     if (!currentUser) {
@@ -119,4 +153,4 @@ const updateUser = async (req, res, next) => {
   }
 };
 
-module.exports = { getAnUser, createAnUser, getUsers, getProfile, updateUser };
+module.exports = { getAnUser, createAnUser, getUsers, getProfile, getMyQrCode, updateUser };

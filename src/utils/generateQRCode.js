@@ -1,35 +1,25 @@
 const QRCode = require("qrcode");
 
-module.exports = async (id) => {
+// The public link a customer lands on after scanning a restaurant's table code.
+// The menu page reads `restaurantId` and shows only that kitchen's dishes.
+const menuUrlFor = (restaurantId) => {
+  const base = (process.env.FRONTEND_BASE_URL || "").replace(/\/+$/, "");
+  return `${base}/menu?restaurantId=${encodeURIComponent(String(restaurantId))}`;
+};
+
+// Renders the menu link as a PNG data URL, sized for printing on a table card.
+const generateQRCode = async (restaurantId) => {
   try {
-    // let stringdata = JSON.stringify(newUser.id);
-
-    // Converting the data into base64
-    // QRCode.toDataURL(stringdata, function (err, code) {
-    //     if (err) return console.log("error occurred");
-    //     console.log(code);
-    //     user.qrCode = code;
-    // });
-
-    // const deeplink = `http://${process.env.HOST}:${process.env.PORT}/api/v1/users/${id}`;
-
-    // const host = process.env.host || 'localhost';
-    // const port = process.env.port || 3000;
-
-    // const deeplink = `http://${host}:${port}/api/v1/products?restaurantId=${id}`;
-    // const deeplink = `http://${host}:${port}/api/v1/users/${id}`;
-
-    const deeplink =
-      process.env.FRONTEND_BASE_URL ||
-      `http://${process.env.HOST}:${process.env.PORT}/` +
-        `products?restaurantId=${id}`;
-
-    // Generate the QR code and wait for the result
-    const code = await QRCode.toDataURL(deeplink);
-    // const code = await QRCode.toDataURL(data);
-
-    return code;
+    return await QRCode.toDataURL(menuUrlFor(restaurantId), {
+      margin: 2,
+      width: 512,
+      errorCorrectionLevel: "M",
+    });
   } catch (error) {
-    console.log(error);
+    console.error("QR code generation failed:", error);
+    return undefined;
   }
 };
+
+module.exports = generateQRCode;
+module.exports.menuUrlFor = menuUrlFor;

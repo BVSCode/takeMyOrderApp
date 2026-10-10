@@ -54,9 +54,11 @@ const canHandOver = (order) =>
 const getOrders = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    // Admins see every order with the customer attached; customers see only their own
+    // Admins see their own restaurant's orders with the customer attached
+    // (superadmins see every restaurant); customers see only their own
     if (isAdmin(req)) {
-      const allOrders = await Order.find({}, null, { sort: { createdAt: -1 } }).populate(
+      const scope = req.user.role === "superadmin" ? {} : { restaurantId: userId };
+      const allOrders = await Order.find(scope, null, { sort: { createdAt: -1 } }).populate(
         "userId",
         CUSTOMER_FIELDS,
       );
@@ -84,8 +86,21 @@ const getOrders = async (req, res, next) => {
 
 const createOrder = async (req, res, next) => {
   try {
+    const { orderItems, description, paymentMethod, restaurantId } = req.body || {};
+
+    // The restaurant comes from the table QR code the customer scanned.
+    if (!restaurantId) {
+      return res.status(400).json({
+        status: false,
+        message: "Scan the restaurant's QR code to order from its menu",
+      });
+    }
+
     const newOrder = await Order.create({
-      ...req.body,
+      orderItems,
+      description,
+      paymentMethod,
+      restaurantId,
       userId: req.user.userId,
     });
 
