@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-// const bcrypt = require('bcrypt');
+const bcrypt = require("bcrypt");
 // const slugify = require('slugify');
 
 const userSchema = new mongoose.Schema(
@@ -10,27 +10,12 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    restaurantName: {
+    businessName: {
       type: String,
       // required: ["companyName is required!", true],
-      sparse: true, // Enable partial index,
+      // sparse: true, // Enable partial index,
       lowercase: true,
     },
-    // items: [{
-    //   itemName: {
-    //     type: String,
-    //   },
-    //   price: {
-    //     type: Number,
-    //   },
-    //   // quantity: {
-    //   //   type: String,
-    //   // },
-    //   unit: {
-    //     type: String,
-    //     default: 'gram'
-    //   }
-    // }],
     mobileNumber: {
       type: String,
       trim: true,
@@ -59,47 +44,11 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      // required: [true, 'please provide a password'],
-      // minlength: [8, "Password should be between 8 to 16 charactors!"],
-      // maxlength: [36, "Password should be between 8 to 16 charactors!"],
-      // trim: true,
-      // select: false
+      minlength: [8, "Password must be at least 8 characters"],
+      select: false,
     },
     photo: String,
     qrCode: String,
-    // otp: {
-    //   type: {
-    //     otp: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     status: {
-    //       type: String,
-    //       required: true,
-    //       enum: ["pending", "verified", "expired", "invalid"],
-    //       default: "pending",
-    //     },
-    //     createdAt: {
-    //       type: Date,
-    //       default: Date.now,
-    //       required: true,
-    //     },
-    //     expiration: {
-    //       type: Date,
-    //       required: true,
-    //       default: function () {
-    //         return Date.now() + 5 * 60 * 1000; // Expiration time (5 minutes from creation)
-    //       },
-    //     },
-    //   },
-    // },
-    // age: {
-    //     type: Number,
-    //     trim: true,
-    //     required: ['age is required!', true],
-    //     min: [18, 'Age must be greater than or equal to 18'],
-    //     max: [80, 'Age must be less than 80'],
-    // },
     address: {
       line1: { type: String, lowercase: true, trim: true },
       line2: { type: String, lowercase: true, trim: true },
@@ -124,12 +73,6 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    // products: [
-    //   {
-    //     type: mongoose.Schema.ObjectId,
-    //     ref: 'Product'
-    //   }
-    // ],
     // slug: {
     //   type: String,
     //   unique: true // Ensure slugs are unique
@@ -151,20 +94,19 @@ userSchema.virtual("products", {
   foreignField: "restaurantId",
 });
 
-// User model---
-// userSchema.pre('save', async function (next) {
-//   if (!this.isModified('password')) {
-//     return next();
-//   }
+// Hash the password whenever it is set or changed.
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password") || !this.password) return next();
+  this.password = await bcrypt.hash(this.password, 12);
+  next();
+});
 
-//   this.password = await bcrypt.hash(this.password, 10);
-
-//   next();
-// });
-
-// userSchema.methods.correctPassword = async function (candidatePassword, userPassword) {
-//   return await bcrypt.compare(candidatePassword, userPassword)
-// }
+// Compare a plain-text candidate with the stored hash.
+// The document must have been loaded with `.select("+password")`.
+userSchema.methods.correctPassword = async function (candidatePassword) {
+  if (!this.password) return false;
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 // userSchema.pre('save', function (next) {
 //   // Only generate slug if the 'name' field is new or has been modified
