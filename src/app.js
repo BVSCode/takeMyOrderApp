@@ -19,30 +19,36 @@ const app = express();
 // Connect with DB---
 connectTOMongo();
 
-// app.use(cors());
-app.set("trust proxy", true);
+const isProduction = process.env.NODE_ENV === "production";
+
+// Needed so req.protocol / secure cookies work behind Render, Railway, etc.
+app.set("trust proxy", 1);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// cors configuration
+// CORS: the deployed frontend comes from FRONTEND_BASE_URL. Extra origins
+// (a preview URL, a custom domain) go in CORS_ORIGINS as a comma-separated
+// list. Localhost dev servers are only allowed outside production.
+const allowedOrigins = [
+  process.env.FRONTEND_BASE_URL,
+  ...(process.env.CORS_ORIGINS || "").split(","),
+  ...(isProduction
+    ? []
+    : ["http://localhost:5173", "http://localhost:8080"]),
+]
+  .map((o) => (o || "").trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://10.75.255.31:5173",
-      "http://localhost:8080",
-      "http://10.16.151.31:8080",
-      process.env.FRONTEND_BASE_URL,
-      // "http://10.47.246.31:5174/",
-      "https://haematological-shaunta-phyletically.ngrok-free.dev",
-    ],
+    origin: (origin, callback) => {
+      // Same-origin requests, curl and server-to-server calls have no Origin.
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "ngrok-skip-browser-warning",
-    ],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
@@ -132,6 +138,10 @@ app.get(
   },
 );
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
 app.get("/", (req, res) => {
   res.send(`<h2>Welcome</h2><a href="/auth/google">Login with Google</a>`);
 });
@@ -142,17 +152,29 @@ app.use("/api/v1/users", userRoute);
 app.use("/api/v1/products", productRoute);
 app.use("/api/v1/orders", orderRoute);
 
-// app.all('*', (req, res) => {
-//   return res.status(404).json({
-//     status: false,
-//     message: `can't find ${req.originalUrl} on this server!`
-//   });
-// });
+// Unknown API routes come back as JSON instead of the Express HTML page.
+app.use((req, res) => {
+  res.status(404).json({
+    status: false,
+    message: `Can't find ${req.originalUrl} on this server`,
+  });
+});
+
+// Last-resort error handler so a thrown error never leaks a stack trace.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (err?.message?.includes("not allowed by CORS")) {
+    return res.status(403).json({ status: false, message: err.message });
+  }
+  console.error(err);
+  res.status(err.status || 500).json({
+    status: false,
+    message: isProduction ? "Something went wrong" : err.message,
+  });
+});
 
 const port = process.env.PORT || 3000;
-const host = process.env.HOST || "127.0.0.1";
 
-// app.listen(port, host, () =>
 app.listen(port, "0.0.0.0", () =>
-  console.log(`server is listening on http://0.0.0.0:${port}`),
+  console.log(`server is listening on port ${port} (${process.env.NODE_ENV || "development"})`),
 );

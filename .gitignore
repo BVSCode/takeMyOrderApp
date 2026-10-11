@@ -1,3 +1,7 @@
 node_modules
-*.env
+.env
+.env.*
+!.env.example
 *.log
+isolate-*.log
+processed_profile.txt
