@@ -34,7 +34,7 @@ The repo is set up for Vercel out of the box: `api/index.js` exports the Express
 2. Add the environment variables from the table above. Use `NODE_ENV=production`, your MongoDB Atlas URI, and `CALLBACK_URL=https://<project>.vercel.app/auth/google/callback`.
 3. Deploy, then open `https://<project>.vercel.app/health` to confirm it responds.
 4. In the Google Cloud Console, add the callback URL to Authorized redirect URIs.
-5. Point the frontend's `VITE_NODE_SERVER_APP_BASE_URL` at `https://<project>.vercel.app/api/v1`, and set the backend's `FRONTEND_BASE_URL` to the deployed frontend origin.
+5. Point the frontend's `VITE_NODE_SERVER_APP_BASE_URL` at `https://<project>.vercel.app/api/v1`. The frontend is live at https://saas-take-my-order-frontend.vercel.app, so set `FRONTEND_BASE_URL` to exactly that origin.
 
 MongoDB Atlas: allow access from anywhere (`0.0.0.0/0`) in Network Access, since Vercel functions have no fixed IP.
 
