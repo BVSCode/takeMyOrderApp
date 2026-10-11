@@ -5,23 +5,35 @@ const mongoURI =
   process.env.MONGO_URI ||
   (isProduction ? undefined : "mongodb://localhost:27017/TakeMyOrder");
 
-const connectTOMongo = async () => {
+// On serverless hosts (Vercel) the module is re-evaluated on every cold start
+// but kept warm between requests, so the connection promise is cached on the
+// global object and reused instead of opening a new pool per request.
+const cached = global.__takeMyOrderMongo || (global.__takeMyOrderMongo = {});
+
+const connectTOMongo = () => {
   if (!mongoURI) {
-    console.error("MONGO_URI is not set. Add it to the environment variables.");
-    process.exit(1);
+    return Promise.reject(
+      new Error("MONGO_URI is not set. Add it to the environment variables."),
+    );
   }
 
-  try {
-    await mongoose.connect(mongoURI);
-    console.log("connected with mongo.");
-  } catch (error) {
-    console.error("MongoDB connection failed:", error.message);
-    process.exit(1);
+  if (!cached.promise) {
+    cached.promise = mongoose
+      .connect(mongoURI, { serverSelectionTimeoutMS: 8000 })
+      .then((conn) => {
+        console.log("connected with mongo.");
+        conn.connection.on("error", (error) =>
+          console.error("MongoDB error:", error.message),
+        );
+        return conn;
+      })
+      .catch((error) => {
+        // Let the next request retry instead of caching a failed promise.
+        cached.promise = null;
+        throw error;
+      });
   }
-
-  mongoose.connection.on("error", (error) => {
-    console.error("MongoDB error:", error.message);
-  });
+  return cached.promise;
 };
 
 module.exports = { connectTOMongo };

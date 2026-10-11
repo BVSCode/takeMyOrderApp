@@ -5,3 +5,4 @@ node_modules
 *.log
 isolate-*.log
 processed_profile.txt
+.vercel

@@ -12,12 +12,10 @@ const productRoute = require("./routes/productRoute");
 const orderRoute = require("./routes/orderRoute");
 const authRoute = require("./routes/authRoute");
 const User = require("./models/userModel");
+const { serveImage } = require("./controllers/uploadController");
 
 // Initialize express app
 const app = express();
-
-// Connect with DB---
-connectTOMongo();
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -53,9 +51,27 @@ app.use(
   }),
 );
 
-// Serve static files from the 'public' directory
-// app.use(express.static(path.join(__dirname, 'public')));
+// Liveness check for Vercel / uptime monitors; does not touch the database.
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
+// Every route below needs the database. The connection is cached, so this
+// is a no-op after the first request on a warm instance.
+app.use(async (req, res, next) => {
+  try {
+    await connectTOMongo();
+    next();
+  } catch (error) {
+    console.error("MongoDB connection failed:", error.message);
+    res.status(503).json({ status: false, message: "Database unavailable" });
+  }
+});
+
+// Legacy images committed under public/ (served by Vercel's CDN directly in
+// production), then uploaded images stored in MongoDB.
 app.use(express.static(path.join(__dirname, "..", "public")));
+app.get("/images/:filename", serveImage);
 
 // ---
 // Initialize passport (no session)
@@ -138,10 +154,6 @@ app.get(
   },
 );
 
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok", uptime: process.uptime() });
-});
-
 app.get("/", (req, res) => {
   res.send(`<h2>Welcome</h2><a href="/auth/google">Login with Google</a>`);
 });
@@ -173,8 +185,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-const port = process.env.PORT || 3000;
-
-app.listen(port, "0.0.0.0", () =>
-  console.log(`server is listening on port ${port} (${process.env.NODE_ENV || "development"})`),
-);
+module.exports = app;

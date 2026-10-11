@@ -26,24 +26,27 @@ The API is served under `/api/v1`. Google sign-in starts at `/auth/google`. `/he
 | `JWT_SECRET` | yes | Long random secret for signing session cookies. |
 | `ADMIN_SIGNUP_CODE` | no | When set, admin signup needs this invite code. |
 
-## Deploy (Render / Railway / Fly)
+## Deploy on Vercel
 
-- Root directory: this folder
-- Build command: `npm install`
-- Start command: `npm start`
-- Node: 20 or newer
-- Set every variable from the table above. `FRONTEND_BASE_URL` must be the real frontend URL with no trailing slash.
+The repo is set up for Vercel out of the box: `api/index.js` exports the Express app as a serverless function and `vercel.json` rewrites every path to it. Files under `public/` are served by Vercel's CDN directly.
 
-After the first deploy:
+1. Import the GitHub repo in Vercel and pick the `production` branch. Leave Framework Preset as **Other**, Build Command empty, Install Command `npm install`.
+2. Add the environment variables from the table above. Use `NODE_ENV=production`, your MongoDB Atlas URI, and `CALLBACK_URL=https://<project>.vercel.app/auth/google/callback`.
+3. Deploy, then open `https://<project>.vercel.app/health` to confirm it responds.
+4. In the Google Cloud Console, add the callback URL to Authorized redirect URIs.
+5. Point the frontend's `VITE_NODE_SERVER_APP_BASE_URL` at `https://<project>.vercel.app/api/v1`, and set the backend's `FRONTEND_BASE_URL` to the deployed frontend origin.
 
-1. Add `CALLBACK_URL` to the Google OAuth client's Authorized redirect URIs.
-2. Point the frontend's `VITE_NODE_SERVER_APP_BASE_URL` at `https://<api-host>/api/v1`.
+MongoDB Atlas: allow access from anywhere (`0.0.0.0/0`) in Network Access, since Vercel functions have no fixed IP.
 
 Cookies are set with `SameSite=None; Secure`, so both the API and the frontend must be served over HTTPS in production.
 
+### Other hosts (Render, Railway, Fly)
+
+Start command `npm start` runs `src/server.js`, a normal long-running server. Node 20 or newer.
+
 ### Uploaded images
 
-Product images are written to `public/images` on the server's disk. On hosts with an ephemeral filesystem (Render free tier, most containers) uploads disappear on redeploy. Attach a persistent disk or move uploads to object storage (Cloudinary, S3) before relying on this in production.
+Product images are stored in MongoDB (the `images` collection) and served from `/images/<filename>`, so they persist on hosts with a read-only or ephemeral filesystem. Uploads are capped at 4 MB because Vercel rejects larger request bodies.
 
 ### Local tunnel for testing Google OAuth
 

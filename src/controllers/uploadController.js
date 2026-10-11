@@ -1,12 +1,7 @@
 const path = require("path");
-const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
-
-// Images are written to the public folder, which app.js serves statically,
-// so a saved file is reachable at /images/<filename>.
-const IMAGES_DIR = path.join(__dirname, "..", "..", "public", "images");
-fs.mkdirSync(IMAGES_DIR, { recursive: true });
+const Image = require("../models/imageModel");
 
 const ALLOWED = {
   "image/jpeg": ".jpg",
@@ -14,24 +9,11 @@ const ALLOWED = {
   "image/webp": ".webp",
   "image/gif": ".gif",
 };
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, IMAGES_DIR),
-  filename: (req, file, cb) => {
-    const base = path
-      .parse(file.originalname)
-      .name.toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "image";
-    const unique = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
-    cb(null, `${base}-${unique}${ALLOWED[file.mimetype]}`);
-  },
-});
+// Vercel rejects request bodies over 4.5 MB, so stay under that.
+const MAX_BYTES = 4 * 1024 * 1024;
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_BYTES, files: 1 },
   fileFilter: (req, file, cb) => {
     if (ALLOWED[file.mimetype]) return cb(null, true);
@@ -41,32 +23,83 @@ const upload = multer({
   },
 });
 
-// Wraps multer so its errors come back as JSON instead of a crash.
+const buildFilename = (originalname, mimetype) => {
+  const base =
+    path
+      .parse(originalname)
+      .name.toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "image";
+  const unique = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+  return `${base}-${unique}${ALLOWED[mimetype]}`;
+};
+
+// POST /api/v1/products/upload
+// Stores the image in MongoDB and returns the public URL to save on the product.
 const uploadImage = (req, res, next) => {
-  upload.single("image")(req, res, (err) => {
+  upload.single("image")(req, res, async (err) => {
     if (err) {
       if (err.code === "LIMIT_FILE_SIZE") {
-        return res.status(413).json({ status: false, message: "Image must be 5 MB or smaller" });
+        return res
+          .status(413)
+          .json({ status: false, message: "Image must be 4 MB or smaller" });
       }
       if (err.code === "UNSUPPORTED_TYPE") {
         return res.status(415).json({ status: false, message: err.message });
       }
-      console.log(err);
-      return res.status(400).json({ status: false, message: "Image upload failed" });
+      console.error("Upload error:", err);
+      return res
+        .status(400)
+        .json({ status: false, message: "Image upload failed" });
     }
     if (!req.file) {
-      return res.status(400).json({ status: false, message: "Choose an image to upload" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Choose an image to upload" });
     }
 
-    // Absolute URL so the frontend can use it as-is. trust proxy is on, so
-    // req.protocol reflects the original scheme behind ngrok.
-    const url = `${req.protocol}://${req.get("host")}/images/${req.file.filename}`;
-    res.status(201).json({
-      status: true,
-      data: { url, filename: req.file.filename, size: req.file.size },
-      message: "image uploaded successfully!",
-    });
+    try {
+      const image = await Image.create({
+        filename: buildFilename(req.file.originalname, req.file.mimetype),
+        contentType: req.file.mimetype,
+        size: req.file.size,
+        data: req.file.buffer,
+        uploadedBy: req.user?.userId,
+      });
+
+      // Absolute URL so the frontend can use it as-is. trust proxy is on, so
+      // req.protocol reflects the original scheme behind the host's proxy.
+      const url = `${req.protocol}://${req.get("host")}/images/${image.filename}`;
+      return res.status(201).json({
+        status: true,
+        data: { url, filename: image.filename, size: image.size },
+        message: "image uploaded successfully!",
+      });
+    } catch (error) {
+      return next(error);
+    }
   });
 };
 
-module.exports = { uploadImage };
+// GET /images/:filename
+// Filenames are unique and never rewritten, so browsers and the CDN may cache
+// them indefinitely.
+const serveImage = async (req, res, next) => {
+  try {
+    const image = await Image.findOne({ filename: req.params.filename }).select(
+      "+data",
+    );
+    if (!image) {
+      return res.status(404).json({ status: false, message: "Image not found" });
+    }
+    // res.send(Buffer) sets Content-Length itself.
+    res.type(image.contentType);
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    return res.send(Buffer.from(image.data));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+module.exports = { uploadImage, serveImage };
