@@ -138,10 +138,12 @@ const adminSignup = async (req, res) => {
     return res.status(201).json({ status: true, user: publicUser(user) });
   } catch (error) {
     if (error?.code === 11000) {
-      return res.status(409).json({
-        status: false,
-        message: "An account with this email already exists. Sign in instead.",
-      });
+      const field = Object.keys(error.keyPattern || {})[0];
+      const message =
+        field === "mobileNumber"
+          ? "An account with this mobile number already exists."
+          : "An account with this email already exists. Sign in instead.";
+      return res.status(409).json({ status: false, message });
     }
     if (error?.name === "ValidationError") {
       const first = Object.values(error.errors)[0];

@@ -19,11 +19,13 @@ const userSchema = new mongoose.Schema(
     mobileNumber: {
       type: String,
       trim: true,
-      // required: [true, "mobile number is must!"],
-      unique: [true, "mobile number must be unique!"],
+      // Optional. Uniqueness is enforced by the partial index below so that
+      // users without a number (e.g. Google / email sign-ups) never collide.
+      // An empty string is stored as "not set" rather than failing validation.
+      set: (v) => (v === "" || v === null ? undefined : v),
       validate: {
         validator: function (v) {
-          return /^\d{10}$/.test(v);
+          return v == null || /^\d{10}$/.test(v);
         },
         message: "{VALUE} is not a valid 10 digit number!",
       },
@@ -85,6 +87,17 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+  },
+);
+
+// Only documents that actually have a mobile number take part in the unique
+// index. A plain `unique: true` indexes a missing field as null, so the second
+// user created without a number fails with a duplicate key error.
+userSchema.index(
+  { mobileNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { mobileNumber: { $type: "string" } },
   },
 );
 

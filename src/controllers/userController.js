@@ -116,6 +116,19 @@ const createAnUser = async (req, res) => {
       data: newUser,
     });
   } catch (err) {
+    if (err?.code === 11000) {
+      const field = Object.keys(err.keyPattern || {})[0] || "field";
+      return res.status(409).json({
+        status: false,
+        message: `A user with this ${field} already exists.`,
+      });
+    }
+    if (err?.name === "ValidationError") {
+      const first = Object.values(err.errors)[0];
+      return res
+        .status(400)
+        .json({ status: false, message: first?.message || "Invalid input" });
+    }
     console.error(err);
     res.status(500).json({
       status: false,
