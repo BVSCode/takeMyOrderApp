@@ -1,5 +1,6 @@
 const QRCode = require("qrcode");
 const Order = require("../models/orderModel");
+const User = require("../models/userModel");
 
 const ADMIN_ROLES = ["admin", "superadmin"];
 const isAdmin = (req) => ADMIN_ROLES.includes(req.user?.role);
@@ -35,9 +36,14 @@ const pickupLink = (token) => {
 };
 
 // Serialises an order and, while it is still collectable, attaches a QR image.
+// Table orders are brought over by a waiter, so they carry no pickup QR.
 const withPickupQr = async (order) => {
   const plain = order.toObject();
-  if (plain.orderToken?.status === "active" && OPEN_STATUSES.includes(plain.status)) {
+  if (
+    plain.fulfillment !== "table" &&
+    plain.orderToken?.status === "active" &&
+    OPEN_STATUSES.includes(plain.status)
+  ) {
     plain.pickupQr = await QRCode.toDataURL(pickupLink(plain.orderToken.token), {
       margin: 1,
       width: 240,
@@ -86,7 +92,15 @@ const getOrders = async (req, res, next) => {
 
 const createOrder = async (req, res, next) => {
   try {
-    const { orderItems, description, paymentMethod, restaurantId } = req.body || {};
+    const { orderItems, description, paymentMethod, restaurantId, fulfillment, tableNumber } = req.body || {};
+
+    // Staff browse the menu to check it, never to buy from it.
+    if (isAdmin(req)) {
+      return res.status(403).json({
+        status: false,
+        message: "Staff accounts cannot place orders. Sign in as a customer to order.",
+      });
+    }
 
     // The restaurant comes from the table QR code the customer scanned.
     if (!restaurantId) {
@@ -96,12 +110,38 @@ const createOrder = async (req, res, next) => {
       });
     }
 
+    // Table service: the table must exist at this restaurant.
+    const atTable = fulfillment === "table";
+    let table;
+    if (atTable) {
+      table = Number(tableNumber);
+      if (!Number.isInteger(table) || table < 1) {
+        return res.status(400).json({ status: false, message: "Enter your table number" });
+      }
+      const restaurant = await User.findById(restaurantId).select("tableCount");
+      const tableCount = restaurant?.tableCount || 0;
+      if (tableCount === 0) {
+        return res.status(400).json({
+          status: false,
+          message: "This restaurant does not take table orders yet. Choose pickup instead.",
+        });
+      }
+      if (table > tableCount) {
+        return res.status(400).json({
+          status: false,
+          message: `This restaurant has tables 1 to ${tableCount}. Check the number on your table.`,
+        });
+      }
+    }
+
     const newOrder = await Order.create({
       orderItems,
       description,
       paymentMethod,
       restaurantId,
       userId: req.user.userId,
+      fulfillment: atTable ? "table" : "pickup",
+      tableNumber: atTable ? table : undefined,
     });
 
     res.status(200).json({
@@ -155,10 +195,14 @@ const updateOderById = async (req, res, next) => {
       if (req.body[key] !== undefined) order[key] = req.body[key];
     }
 
-    // Completing an order (from the table or the pickup box) retires its pickup code
+    // Completing an order (from the board or the pickup box) retires its pickup code
     if (order.status === "Completed" && order.orderToken?.status === "active") {
       order.orderToken.status = "inactive";
       order.pickedUpAt = order.pickedUpAt || new Date();
+    }
+    // For table service, completed means the waiter has put it on the table
+    if (order.status === "Completed" && order.fulfillment === "table" && !order.servedAt) {
+      order.servedAt = new Date();
     }
 
     await order.save();

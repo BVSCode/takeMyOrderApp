@@ -19,8 +19,13 @@ router.route("/me").get(getProfile);
 // The restaurant's table QR code. Declared before "/:id" so "me" is never read as an id.
 router.get("/me/qr", requireRole("admin", "superadmin"), getMyQrCode);
 
-router.route("/").get(getUsers).post(createAnUser);
+// Listing, creating and editing arbitrary accounts (including their role) is
+// platform administration. Restaurant admins and customers get their own data
+// through /me, /me/qr and /restaurants/me instead.
+const superadminOnly = requireRole("superadmin");
 
-router.route("/:id").get(getAnUser).patch(updateUser);
+router.route("/").get(superadminOnly, getUsers).post(superadminOnly, createAnUser);
+
+router.route("/:id").get(superadminOnly, getAnUser).patch(superadminOnly, updateUser);
 
 module.exports = router;

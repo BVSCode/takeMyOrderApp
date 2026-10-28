@@ -139,14 +139,19 @@ const createAnUser = async (req, res) => {
 
 const updateUser = async (req, res, next) => {
   try {
+    // findByIdAndUpdate skips the pre-save hook that hashes passwords, so a
+    // password set here would be stored in plain text. Passwords are not
+    // changed through this route.
+    const { password, qrCode, ...changes } = req.body || {};
+
     const updatedProduct = await User.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      changes,
       { new: true, runValidators: true },
     );
 
     if (!updatedProduct) {
-      res.status(404).json({
+      return res.status(404).json({
         status: false,
         message: "could not find doc with that id",
       });

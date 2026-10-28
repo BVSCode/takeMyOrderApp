@@ -2,7 +2,6 @@ const express = require("express");
 require("dotenv").config();
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const path = require("path");
 const cookieParser = require("cookie-parser");
@@ -11,8 +10,11 @@ const userRoute = require("./routes/userRoute");
 const productRoute = require("./routes/productRoute");
 const orderRoute = require("./routes/orderRoute");
 const authRoute = require("./routes/authRoute");
+const restaurantRoute = require("./routes/restaurantRoute");
 const User = require("./models/userModel");
 const { serveImage } = require("./controllers/uploadController");
+const { issueSession, STAFF_ROLES } = require("./controllers/authController");
+const qrCodeGenerator = require("./utils/generateQRCode");
 
 // Initialize express app
 const app = express();
@@ -77,7 +79,9 @@ app.get("/images/:filename", serveImage);
 // Initialize passport (no session)
 app.use(passport.initialize());
 
-// Configure Passport to use Google OIDC
+// Configure Passport to use Google OIDC. The verify step only looks the
+// person up; what happens next depends on why they clicked the button
+// (customer sign-in, admin sign-in or admin sign-up), handled in the callback.
 passport.use(
   new GoogleStrategy(
     {
@@ -87,39 +91,10 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const userEmail = profile.emails?.[0].value;
-        let newUser = null;
-        let userExists = null;
-
-        if (userEmail) {
-          // Check if the user already exists in the database
-          userExists = await User.findOne({ email: userEmail });
-          if (!userExists) {
-            // Create a new user in the database
-            newUser = await User.create({
-              userName: profile.displayName,
-              email: userEmail,
-              // googleId: profile.id,
-              // mobileNumber: "0000000012",
-            });
-          }
-        }
-
-        // Here, issue your JWT
-        const token = jwt.sign(
-          {
-            profileId: profile.id,
-            userId: userExists?._id || newUser?._id,
-            name: profile.displayName,
-            email: profile.emails?.[0].value,
-            provider: profile.provider,
-            role: userExists?.role || newUser?.role || "user",
-          },
-          process.env.JWT_SECRET,
-          { expiresIn: "90d" },
-        );
-
-        return done(null, token);
+        const email = profile.emails?.[0]?.value?.trim().toLowerCase();
+        if (!email) return done(null, false);
+        const existing = await User.findOne({ email });
+        return done(null, { profile, email, existing });
       } catch (error) {
         console.error("Error during Google authentication:", error);
         return done(error, null);
@@ -128,29 +103,91 @@ passport.use(
   ),
 );
 
-// Start OIDC login
-app.get(
-  "/auth/google",
-  passport.authenticate("google", { scope: ["openid", "email", "profile"] }),
-);
+const frontendBase = () => (process.env.FRONTEND_BASE_URL || "").replace(/\/+$/, "");
+
+// Why the person started the Google flow, carried through OAuth in `state`.
+const GOOGLE_INTENTS = ["customer", "admin-login", "admin-signup"];
+const encodeState = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+const decodeState = (raw) => {
+  try {
+    return JSON.parse(Buffer.from(String(raw || ""), "base64url").toString("utf8")) || {};
+  } catch {
+    return {};
+  }
+};
+
+// Start OIDC login.
+//   /auth/google                                   customer
+//   /auth/google?intent=admin-login                restaurant admin signing in
+//   /auth/google?intent=admin-signup&businessName=&inviteCode=
+app.get("/auth/google", (req, res, next) => {
+  const { intent, businessName, inviteCode } = req.query;
+  const state = encodeState({
+    intent: GOOGLE_INTENTS.includes(intent) ? intent : "customer",
+    businessName: String(businessName || "").trim().slice(0, 80),
+    inviteCode: String(inviteCode || "").trim().slice(0, 100),
+  });
+  passport.authenticate("google", { scope: ["openid", "email", "profile"], state, session: false })(req, res, next);
+});
 
 // Handle OIDC callback
 app.get(
   "/auth/google/callback",
-  passport.authenticate("google", { session: false }),
-  (req, res) => {
-    // res.redirect(`${process.env.FRONTEND_BASE_URL}?token=${req.user}`);
-    // res.redirect(`${process.env.FRONTEND_BASE_URL}`);
+  (req, res, next) => {
+    const { intent } = decodeState(req.query.state);
+    const failureRedirect = `${frontendBase()}${intent === "admin-login" || intent === "admin-signup" ? "/admin/login" : "/login"}?error=failed`;
+    passport.authenticate("google", { session: false, failureRedirect })(req, res, next);
+  },
+  async (req, res) => {
+    const base = frontendBase();
+    const { profile, email, existing } = req.user;
+    const state = decodeState(req.query.state);
+    const isStaff = (user) => STAFF_ROLES.includes(user.role);
+    const fail = (path, code) => res.redirect(`${base}${path}?error=${code}`);
+    const signInAndGo = (user, path) => {
+      issueSession(res, user, "google");
+      return res.redirect(`${base}${path}`);
+    };
 
-    // set the token in the cookie
-    res.cookie("token", req.user, {
-      httpOnly: true,
-      secure: true,
-      maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
-      sameSite: "none",
-    });
+    try {
+      if (state.intent === "admin-login") {
+        if (!existing) return fail("/admin/login", "no-account");
+        if (!isStaff(existing)) return fail("/admin/login", "not-admin");
+        if (existing.isActive === false) return fail("/admin/login", "deactivated");
+        return signInAndGo(existing, "/admin");
+      }
 
-    res.redirect(`${process.env.FRONTEND_BASE_URL}`);
+      if (state.intent === "admin-signup") {
+        const requiredCode = process.env.ADMIN_SIGNUP_CODE;
+        if (requiredCode && state.inviteCode !== requiredCode) return fail("/admin/signup", "invite");
+        if (existing) {
+          // Already an admin: treat it as a sign-in. A customer account keeps
+          // its role, same as the email sign-up refuses an existing email.
+          if (isStaff(existing)) return signInAndGo(existing, "/admin");
+          return fail("/admin/signup", "customer-account");
+        }
+        const user = await User.create({
+          userName: profile.displayName,
+          email,
+          businessName: state.businessName || undefined,
+          role: "admin",
+        });
+        try {
+          user.qrCode = await qrCodeGenerator(user._id);
+          await user.save();
+        } catch (qrError) {
+          console.error("QR code generation failed:", qrError);
+        }
+        return signInAndGo(user, "/admin");
+      }
+
+      // Customers: first visit creates the account.
+      const user = existing || (await User.create({ userName: profile.displayName, email }));
+      return signInAndGo(user, "");
+    } catch (error) {
+      console.error("Google callback error:", error);
+      return fail(state.intent === "admin-signup" ? "/admin/signup" : state.intent === "admin-login" ? "/admin/login" : "/login", "failed");
+    }
   },
 );
 
@@ -163,6 +200,7 @@ app.use("/api/v1/auth", authRoute);
 app.use("/api/v1/users", userRoute);
 app.use("/api/v1/products", productRoute);
 app.use("/api/v1/orders", orderRoute);
+app.use("/api/v1/restaurants", restaurantRoute);
 
 // Unknown API routes come back as JSON instead of the Express HTML page.
 app.use((req, res) => {

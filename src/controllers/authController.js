@@ -215,5 +215,7 @@ module.exports = {
   adminSignup,
   adminLogin,
   logout,
+  issueSession,
+  STAFF_ROLES,
   COOKIE_OPTIONS,
 };

@@ -12,10 +12,19 @@ const userSchema = new mongoose.Schema(
     },
     businessName: {
       type: String,
-      // required: ["companyName is required!", true],
-      // sparse: true, // Enable partial index,
-      lowercase: true,
+      trim: true,
+      // Shown to customers exactly as typed, so no lowercasing here.
     },
+    // What customers see at the top of this restaurant's menu page.
+    // All optional; the admin fills them in from the dashboard.
+    tagline: { type: String, trim: true, maxlength: 120 },
+    description: { type: String, trim: true, maxlength: 600 },
+    coverImage: { type: String, trim: true },
+    logo: { type: String, trim: true },
+    openingHours: { type: String, trim: true, maxlength: 120 },
+    // How many numbered tables the restaurant has. Each gets its own QR code
+    // so an order placed from it is brought to that table. 0 = pickup only.
+    tableCount: { type: Number, min: 0, max: 200, default: 0 },
     mobileNumber: {
       type: String,
       trim: true,
@@ -52,11 +61,11 @@ const userSchema = new mongoose.Schema(
     photo: String,
     qrCode: String,
     address: {
-      line1: { type: String, lowercase: true, trim: true },
-      line2: { type: String, lowercase: true, trim: true },
-      city: { type: String, lowercase: true, trim: true },
-      state: { type: String, lowercase: true, trim: true },
-      country: { type: String, lowercase: true, trim: true },
+      line1: { type: String, trim: true },
+      line2: { type: String, trim: true },
+      city: { type: String, trim: true },
+      state: { type: String, trim: true },
+      country: { type: String, trim: true },
     },
     gender: {
       type: String,

@@ -94,6 +94,26 @@ const orderSchema = new mongoose.Schema(
     pickedUpAt: {
       type: Date,
     },
+    // "pickup": the customer collects it at the counter with their code.
+    // "table": they ordered from a table's QR code and a waiter brings it over.
+    fulfillment: {
+      type: String,
+      trim: true,
+      enum: ["pickup", "table"],
+      default: "pickup",
+    },
+    tableNumber: {
+      type: Number,
+      min: [1, "Table number must be 1 or more"],
+      validate: {
+        validator: Number.isInteger,
+        message: "Table number must be a whole number",
+      },
+    },
+    // Set when a waiter marks a table order as served
+    servedAt: {
+      type: Date,
+    },
     paymentMethod: {
       type: String,
       trim: true,
